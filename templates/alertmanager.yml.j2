@@ -1,0 +1,105 @@
+---
+#jinja2: lstrip_blocks: True
+global:
+  smtp_smarthost: "{{ sansible_prometheus_alertmanager.config.global.smtp_smarthost }}"
+  smtp_from: "{{ sansible_prometheus_alertmanager.config.global.smtp_from }}"
+{% if sansible_prometheus_alertmanager.config.global.smtp_auth_username is defined and sansible_prometheus_alertmanager.config.global.smtp_auth_password is defined %}
+  smtp_auth_username: {{ sansible_prometheus_alertmanager.config.global.smtp_auth_username }}
+  smtp_auth_password: {{ sansible_prometheus_alertmanager.config.global.smtp_auth_password }}
+{% endif %}
+
+templates:
+  - "{{ sansible_prometheus_alertmanager.path.install }}/prometheus_alertmanager/notification/*.tmpl"
+
+route:
+  group_by: {{ sansible_prometheus_alertmanager.config.route.group_by|to_yaml }}
+  group_wait: {{ sansible_prometheus_alertmanager.config.route.group_wait }}
+  group_interval: {{ sansible_prometheus_alertmanager.config.route.group_interval }}
+  repeat_interval: {{ sansible_prometheus_alertmanager.config.route.repeat_interval }}
+{% if sansible_prometheus_alertmanager.config.route.receiver is defined %}
+  receiver: {{ sansible_prometheus_alertmanager.config.route.receiver }}
+{% else %}
+  receiver: default
+{% endif %}
+{% if sansible_prometheus_alertmanager.config.route.routes is defined %}
+{{ "  %s:"|format("routes") }}
+{% for route in sansible_prometheus_alertmanager.config.route.routes %}
+{% if route.match is defined %}
+{{ "  - %s:"|format("match") }} 
+{% for key,value in route.match.items() %}
+{{ "      %s: %s"|format(key,value) }}
+{% endfor %}
+{{ "    %s: %s"|format("receiver",route.receiver) }}
+{{ "    %s:"|format("routes") }}
+{% for subroute in route.routes %}
+{% if subroute.match is defined %}
+{{ "      - %s:"|format("match") }}
+{% for subkey,subvalue in subroute.match.items() %}
+{{ "          %s: %s"|format(subkey,subvalue) }}
+{% endfor %}
+{{ "        %s: %s"|format("receiver",subroute.receiver) }}
+{% endif %}
+{% endfor %}
+{% elif route.match_re is defined %}
+{{ "  - %s:"|format("match_re") }}
+{% for key,value in route.match_re.items() %}
+{{ "       %s: %s"|format(key,value) }}
+{% endfor %}
+{{ "    %s: %s"|format("receiver",route.receiver) }}
+{% if route.group_by is defined %}
+{{ "    %s: %s"|format("group_by",route.group_by) }}
+{% endif %}
+{{ "    %s:"|format("routes") }}
+{% for subroute in route.routes %}
+{% if subroute.match is defined %}
+{{ "      - %s:"|format("match") }}
+{% for subkey,subvalue in subroute.match.items() %}
+{{ "          %s: %s"|format(subkey,subvalue) }}
+{% endfor %}
+{{ "        %s: %s"|format("receiver",subroute.receiver) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+inhibit_rules:
+{% if sansible_prometheus_alertmanager.config.inhibit_rules is defined and sansible_prometheus_alertmanager.config.inhibit_rules is not none %}
+{% for rule in sansible_prometheus_alertmanager.config.inhibit_rules %}
+{{ "  - %s:"|format("source_match") }}
+{% if rule.source_match.severity is defined %}
+{{ "      %s: %s"|format("severity",rule.source_match.severity) }}
+{% endif %}
+{{ "    %s:"|format("target_match") }}
+{% if rule.target_match.severity is defined %}
+{{ "      %s: %s"|format("severity",rule.target_match.severity) }}
+{% endif %}
+{% if rule.equal is defined %}
+{{ "    %s: %s"|format("equal",rule.equal|to_yaml) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+receivers:
+{% if sansible_prometheus_alertmanager.config.receivers is defined and sansible_prometheus_alertmanager.config.receivers is not none %}
+{% for receiver in sansible_prometheus_alertmanager.config.receivers %}
+{{ "  - name: %s"|format(receiver.name|safe) }}
+{% if receiver.email_configs is defined %}
+{{ "    %s:"|format("email_configs") }}
+{% for email in receiver.email_configs %}
+{{ "      - to: %s"|format(email.to|safe) }}
+{% endfor %}
+{% endif %}
+{% if receiver.webhook_configs is defined and receiver.webhook_configs is not none%}
+{{ "    %s:"|format("webhook_configs") }}
+{% for webhook in receiver.webhook_configs %}
+{{ "      - %s: %s"|format("url",webhook.url|safe) }}
+{% if webhook.send_resolved is defined %}
+{{ "        %s: %s"|format("send_resolved",webhook.send_resolved|safe) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% else %}
+  - name: default
+{% endif %}
