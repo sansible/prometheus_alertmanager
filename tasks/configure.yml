@@ -1,0 +1,28 @@
+---
+
+- name: Deploy Prometheus Alert Manager defaults
+  become: yes
+  template:
+    dest: /etc/default/prometheus-alertmanager
+    mode: 0644
+    src: prometheus_alertmanager.default.j2
+  notify:
+    - restart alert manager
+
+- name: Deploy config file
+  become: yes
+  become_user: "{{ sansible_prometheus_alertmanager.user }}"
+  template:
+    dest: "{{ sansible_prometheus_alertmanager.path.install }}/prometheus_alertmanager/alertmanager.yml"
+    group: "{{ sansible_prometheus_alertmanager.group }}"
+    owner: "{{ sansible_prometheus_alertmanager.user }}"
+    src: alertmanager.yml.j2
+    validate: "{{ sansible_prometheus_alertmanager.path.install }}/prometheus_alertmanager/amtool check-config %s"
+  notify:
+    - restart alert manager
+
+- name: Prometheus Alert Manager service start
+  become: yes
+  service:
+    name: prometheus-alertmanager
+    state: started

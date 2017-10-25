@@ -1,0 +1,31 @@
+---
+
+sansible_prometheus_alertmanager:
+  checksum: sha256:407e0311689207b385fb1252f36d3c3119ae9a315e3eba205aaa69d576434ed7
+  config:
+    global:
+      smtp_smarthost: "localhost:25"
+      smtp_from: prometheus@sansible
+    route:
+      group_by:
+        - alertname
+        - role
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 3h
+      receiver: default
+    inhibit_rules: ~
+    templates: /home/prometheus/prometheus_alertmanager/notification/*tmpl
+    receivers:
+      - name: default
+  download_dest: "/tmp"
+  download_url: "https://github.com/prometheus/alertmanager/releases/download/v0.9.1/alertmanager-0.9.1.linux-amd64.tar.gz"
+  gosu_url: "https://github.com/tianon/gosu/releases/download/1.10/gosu-amd64"
+  gosu_checksum: sha256:5b3b03713a888cee84ecbf4582b21ac9fd46c3d935ff2d7ea25dd5055d302d3c
+  group: prometheus
+  opts: -config.file=/home/prometheus/prometheus_alertmanager/alertmanager.yml -storage.path=/home/prometheus/data
+  path:
+    install: /home/prometheus
+    log: /var/log/prometheus
+    pid: /var/run/prometheus
+  user: prometheus

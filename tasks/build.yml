@@ -1,0 +1,74 @@
+---
+
+- name: Create Prometheus Alert Manager directories
+  become: yes
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ sansible_prometheus_alertmanager.user }}"
+    group: "{{ sansible_prometheus_alertmanager.group }}"
+    mode: 0750
+  with_items:
+    - "{{ sansible_prometheus_alertmanager.path.install }}"
+    - "{{ sansible_prometheus_alertmanager.path.install }}/bin"
+    - "{{ sansible_prometheus_alertmanager.path.install }}/notification"
+    - "{{ sansible_prometheus_alertmanager.path.install }}/data"
+    - "{{ sansible_prometheus_alertmanager.path.log }}"
+    - "{{ sansible_prometheus_alertmanager.path.pid }}"
+
+- name: Stat the Prometheus Alert Manager tarball
+  stat:
+    path: "{{ sansible_prometheus_alertmanager.download_dest }}/{{ sansible_prometheus_alertmanager.download_url.split('/')[-1] }}"
+  register: download_tar
+
+- name: Download Prometheus Alert Manager tarball
+  become: yes
+  get_url:
+    url: "{{ sansible_prometheus_alertmanager.download_url }}"
+    dest: "{{ sansible_prometheus_alertmanager.download_dest }}"
+    checksum: "{{ sansible_prometheus_alertmanager.checksum }}"
+  when: download_tar.stat.exists == False
+
+- name: Untar Prometheus Alert Manager tarball
+  become: yes
+  unarchive:
+    src: "{{ sansible_prometheus_alertmanager.download_dest }}/{{ sansible_prometheus_alertmanager.download_url.split('/')[-1] }}"
+    dest: "{{ sansible_prometheus_alertmanager.path.install }}"
+    owner: "{{ sansible_prometheus_alertmanager.user }}"
+    group: "{{ sansible_prometheus_alertmanager.user }}"
+    remote_src: True
+  when: download_tar.stat.exists == False
+
+- name: Ensure Prometheus Alert Manager directory does not exist
+  become: yes
+  file:
+    path: "{{ sansible_prometheus_alertmanager.path.install }}/sansible_prometheus_alertmanager/"
+    state: absent
+  when: download_tar.stat.exists == False
+
+- name: Move Prometheus Alert Manager directory to destination
+  become: yes
+  become_user: "{{ sansible_prometheus_alertmanager.user }}"
+  command: "mv {{ sansible_prometheus_alertmanager.path.install }}/{{ sansible_prometheus_alertmanager.download_url.split('/')[-1].rsplit('.',2)[0] }} {{ sansible_prometheus_alertmanager.path.install }}/prometheus_alertmanager"
+  when: download_tar.stat.exists == False
+
+- name: Download gosu
+  become: yes
+  get_url:
+    url: "{{ sansible_prometheus_alertmanager.gosu_url }}"
+    dest: /usr/local/bin/gosu
+    checksum: "{{ sansible_prometheus_alertmanager.gosu_checksum }}"
+    mode: 0755
+
+- name: Make Prometheus Alert Manager a service
+  become: yes
+  template:
+    dest: /etc/init.d/prometheus-alertmanager
+    mode: 0775
+    src: prometheus_alertmanager.sysvinit.j2
+
+- name: Enable Prometheus Alert Manager to start on boot
+  become: yes
+  service:
+    name: prometheus-alertmanager
+    enabled: yes
